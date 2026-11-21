@@ -1,5 +1,9 @@
 package com.ieum.access;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.media.Schema;
+import com.ieum.ApiDocs;
 import com.ieum.access.Access.Target;
 import com.ieum.safety.IpHasher;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,6 +26,7 @@ import static com.ieum.care.RecipientController.Item.EMERGENCY;
 import static org.springframework.http.HttpStatus.*;
 
 /** 임시보호자·의료진 쪽. 로그인 없이 QR 토큰(또는 8자리 코드)으로 들어온다. */
+@Tag(name = ApiDocs.PUBLIC)
 @RestController
 @RequestMapping("/api/public")
 public class PublicAccessController {
@@ -45,7 +50,8 @@ public class PublicAccessController {
     record DetailReq(@Pattern(regexp = PHONE, message = "휴대폰 번호 형식이 아니에요") String requesterPhone) {}
 
     /** viewToken은 보호자가 동의했고 열람 시간이 남아 있을 때만 온다. */
-    record DetailStatus(UUID id, String status, OffsetDateTime deadlineAt, String viewToken, OffsetDateTime viewExpiresAt) {}
+    record DetailStatus(UUID id, @Schema(allowableValues = {"pending", "approved", "rejected", "expired"}) String status,
+                        OffsetDateTime deadlineAt, String viewToken, OffsetDateTime viewExpiresAt) {}
 
     record DetailRecord(String category, String summary, String quote, OffsetDateTime lastCheckedAt) {}
 
@@ -81,6 +87,7 @@ public class PublicAccessController {
      * QR 토큰이나 8자리 코드를 확인한다. 8자리는 무작위 대입을 막으려고 IP당 1시간에 10번 틀리면 막는다.
      * 일부러 @Transactional이 아니다: 틀린 시도 기록이 404와 함께 롤백되면 안 된다.
      */
+    @Operation(summary = "QR 토큰·8자리 코드 확인", description = "token이나 code 중 하나를 보낸다. 8자리 코드는 IP당 1시간에 10번 틀리면 429. demo=true면 체험용 QR.")
     @PostMapping("/access/resolve")
     public Resolved resolve(@RequestBody ResolveReq req, HttpServletRequest http) {
         if (req.token() != null) return find("a.qr_token = ?", req.token()).orElseThrow(() ->
@@ -99,7 +106,7 @@ public class PublicAccessController {
         });
     }
 
-    /** 의료진: 인증·대기 없이 보호자가 고른 필수정보만. 조회할 때마다 기록하고 보호자에게 알린다. */
+    @Operation(summary = "긴급조회 (의료진)", description = "인증·대기 없음. 보호자가 긴급조회용으로 고른 확정 정보만, 약은 종류·고위험만 준다. 조회할 때마다 기기정보를 기록하고 보호자 전원에게 알린다. allowed=false면 보호자가 공개에 동의하지 않은 것.")
     @PostMapping("/access/{token}/emergency")
     @Transactional
     public Emergency emergency(@PathVariable String token, HttpServletRequest http) {
@@ -119,7 +126,7 @@ public class PublicAccessController {
         return new Emergency(true, items, meds, true, LOGGED_NOTICE);
     }
 
-    /** 간병인: 상세조회 요청. 10분 안에 보호자가 동의해야 열린다. 요청자 번호는 선택, 30일 뒤 파기. */
+    @Operation(summary = "상세조회 요청 (간병인)", description = "10분 안에 보호자가 동의해야 열린다. 요청자 번호(requesterPhone)는 선택이고 30일 뒤 파기된다. 같은 IP에서 1시간에 10번까지.")
     @PostMapping("/access/{token}/detail-requests")
     @ResponseStatus(CREATED)
     @Transactional
@@ -147,13 +154,14 @@ public class PublicAccessController {
     }
 
     /** 요청자 화면이 2초마다 부른다. 요청 id(UUID)를 아는 요청자만 볼 수 있다. */
+    @Operation(summary = "상세조회 요청 상태 (2초 폴링)", description = "approved가 되면 viewToken으로 상세 정보를 본다. 화면에는 '보호자가 확인했어요'로 보여 준다.")
     @GetMapping("/detail-requests/{id}")
     public DetailStatus status(@PathVariable UUID id) {
         return db.sql(STATUS_SQL).param(id).query(DetailStatus.class).optional()
                 .orElseThrow(() -> new ResponseStatusException(NOT_FOUND, "요청을 찾을 수 없어요"));
     }
 
-    /** 상세 정보. 볼 때마다 동의를 다시 확인한다 → 승인 뒤 동의를 거두면 바로 막힌다. */
+    @Operation(summary = "상세 정보", description = "확정된 기록 전부와 원문 인용, 약. 화면 위에 notice와 '마지막 확인: lastCheckedAt'을 고정해 보여 준다. 볼 때마다 기록되고 동의를 다시 확인한다.")
     @GetMapping("/detail/{viewToken}")
     @Transactional
     public Detail detail(@PathVariable String viewToken, HttpServletRequest http) {
@@ -179,7 +187,7 @@ public class PublicAccessController {
         return new Detail(DETAIL_NOTICE, lastChecked, records, meds, g.viewExpiresAt());
     }
 
-    /** 체험: 화면 속 QR을 폰으로 찍으면 폰이 이걸로 같은 체험 단계를 따라간다 (2초 폴링). */
+    @Operation(summary = "체험 단계 (폰 폴링)", description = "체험용 QR이면 같은 체험 세션의 현재 단계를 준다. 실제 가구 QR은 404.")
     @GetMapping("/access/{token}/demo")
     public DemoStep demoStep(@PathVariable String token) {
         return db.sql("""

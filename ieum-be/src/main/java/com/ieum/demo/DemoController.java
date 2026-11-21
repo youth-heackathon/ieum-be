@@ -1,5 +1,8 @@
 package com.ieum.demo;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import com.ieum.ApiDocs;
 import com.ieum.access.Access;
 import com.ieum.safety.IpHasher;
 import jakarta.servlet.http.HttpServletRequest;
@@ -22,6 +25,7 @@ import static org.springframework.http.HttpStatus.*;
  * 심사위원 체험 모드. 세션을 만들면 가상 가구(보호자 박지은 + 어머니)를 복제하고 그 보호자로 로그인시킨다.
  * → 보호자 API가 체험에서도 그대로 동작한다. 24시간 뒤 ieum_cleanup()이 가구째 지운다.
  */
+@Tag(name = ApiDocs.DEMO)
 @RestController
 @RequestMapping("/api/demo/sessions")
 public class DemoController {
@@ -85,7 +89,7 @@ public class DemoController {
         this.access = access;
     }
 
-    /** 처음 시작과 "처음부터" 둘 다 이것. 매번 새 가구를 만든다. */
+    @Operation(summary = "체험 시작 / 처음부터", description = "가상 가구(보호자 박지은과 어머니)를 새로 만들고 그 보호자로 로그인한다. QR도 발급돼 있다. 24시간 뒤 삭제, 같은 IP에서 하루 100번까지.")
     @PostMapping
     @ResponseStatus(CREATED)
     public DemoSession start(HttpServletRequest http) {
@@ -103,13 +107,14 @@ public class DemoController {
         return current(c.sessionId());
     }
 
-    /** 노트북 화면이 2초마다 부른다. */
+    @Operation(summary = "체험 단계 조회 (노트북 폴링)")
     @GetMapping("/me")
     public DemoSession current(@SessionAttribute(name = DEMO, required = false) UUID id) {
         return db.sql("select id, step, expires_at from demo_sessions where id = ?")
                 .param(id).query(DemoSession.class).optional().orElseThrow(DemoController::notFound);
     }
 
+    @Operation(summary = "체험 단계 바꾸기", description = "1~4단계와 5(끝 화면).")
     @PatchMapping("/me")
     public DemoSession moveTo(@Valid @RequestBody StepReq req, @SessionAttribute(name = DEMO, required = false) UUID id) {
         return db.sql("update demo_sessions set step = ? where id = ? returning id, step, expires_at")
