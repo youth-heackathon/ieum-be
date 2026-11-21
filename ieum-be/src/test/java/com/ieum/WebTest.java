@@ -48,4 +48,17 @@ class WebTest extends ApiTest {
                         .header("Access-Control-Request-Method", "GET"))
                 .andExpect(status().isForbidden());
     }
+
+    @Test
+    @DisplayName("조회하는 쪽 API는 로그인 없이 쓴다 (없는 QR은 401이 아니라 404)")
+    void publicApisNeedNoLogin() throws Exception {
+        TestUser anon = anonymous();
+        anon.post("/api/public/access/nope/emergency", "").andExpect(status().isNotFound());
+        anon.post("/api/public/access/nope/detail-requests", "").andExpect(status().isNotFound());
+        anon.post("/api/public/access/resolve", "{\"token\":\"nope\"}").andExpect(status().isNotFound());
+        anon.get("/api/access-codes").andExpect(status().isUnauthorized());
+        anon.get("/api/access-logs").andExpect(status().isUnauthorized());
+        anon.get("/api/notifications").andExpect(status().isUnauthorized());
+        anon.get("/api/detail-requests").andExpect(status().isUnauthorized());
+    }
 }

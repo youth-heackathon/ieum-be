@@ -1,9 +1,7 @@
 package com.ieum;
 
-import com.ieum.safety.IpHasher;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
-import org.springframework.beans.factory.annotation.Autowired;
 
 import java.util.UUID;
 
@@ -13,19 +11,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 
 @DisplayName("심사위원 체험 모드")
 class DemoTest extends ApiTest {
-
-    @Autowired
-    IpHasher ips;
-
-    TestUser judge() throws Exception {
-        TestUser u = anonymous();
-        u.post("/api/demo/sessions", "").andExpect(status().isCreated());
-        return u;
-    }
-
-    UUID recipientOf(TestUser u) throws Exception {
-        return UUID.fromString(read(u.get("/api/auth/me"), "$.recipientId"));
-    }
 
     @Test
     @DisplayName("체험을 시작하면 1단계에서 24시간짜리 세션이 열린다")
@@ -132,13 +117,41 @@ class DemoTest extends ApiTest {
     @Test
     @DisplayName("같은 IP에서 하루 100번 넘게 시작하면 429다")
     void perIpLimit() throws Exception {
-        String myIp = ips.hash("127.0.0.1");
-        long already = count("demo_sessions where ip_hash = ? and created_at > now() - interval '1 day'", myIp);
-        db.sql("insert into demo_sessions (ip_hash) select ? from generate_series(1, ?)").params(myIp, 100 - already).update();
-        try {
-            anonymous().post("/api/demo/sessions", "").andExpect(status().isTooManyRequests());
-        } finally {
-            db.sql("delete from demo_sessions where ip_hash = ?").param(myIp).update();
-        }
+        TestUser u = anonymous();
+        db.sql("insert into demo_sessions (ip_hash) select ? from generate_series(1, 100)").param(ips.hash(u.ip())).update();
+        u.post("/api/demo/sessions", "").andExpect(status().isTooManyRequests());
+        anonymous().post("/api/demo/sessions", "").andExpect(status().isCreated()); // 다른 IP는 영향 없음
+    }
+
+    @Test
+    @DisplayName("체험 가구에는 QR이 미리 발급돼 있어 화면에 바로 띄울 수 있다")
+    void qrReady() throws Exception {
+        judge().get("/api/access-codes")
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.qrToken").isNotEmpty())
+                .andExpect(jsonPath("$.code8").isNotEmpty());
+    }
+
+    @Test
+    @DisplayName("폰으로 화면 속 QR을 찍으면 체험인 걸 알고 같은 단계를 따라간다")
+    void phoneFollowsStep() throws Exception {
+        TestUser laptop = judge();
+        String token = qrToken(laptop);
+        TestUser phone = anonymous();
+        phone.post("/api/public/access/resolve", "{\"token\":\"%s\"}".formatted(token))
+                .andExpect(jsonPath("$.demo").value(true));
+        laptop.patch("/api/demo/sessions/me", "{\"step\":3}");
+        phone.get("/api/public/access/" + token + "/demo")
+                .andExpect(jsonPath("$.step").value(3))
+                .andExpect(jsonPath("$.sessionId").value((String) read(laptop.get("/api/demo/sessions/me"), "$.id")));
+    }
+
+    @Test
+    @DisplayName("실제 가구의 QR로는 체험 단계를 볼 수 없다")
+    void realQrIsNotDemo() throws Exception {
+        String token = qrToken(primary("박지은"));
+        anonymous().post("/api/public/access/resolve", "{\"token\":\"%s\"}".formatted(token))
+                .andExpect(jsonPath("$.demo").value(false));
+        anonymous().get("/api/public/access/" + token + "/demo").andExpect(status().isNotFound());
     }
 }

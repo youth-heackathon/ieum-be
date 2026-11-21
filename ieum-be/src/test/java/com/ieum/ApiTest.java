@@ -1,5 +1,6 @@
 package com.ieum;
 
+import com.ieum.safety.IpHasher;
 import com.jayway.jsonpath.JsonPath;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
@@ -26,6 +27,8 @@ abstract class ApiTest {
     protected MockMvc mvc;
     @Autowired
     protected JdbcClient db;
+    @Autowired
+    protected IpHasher ips;
 
     /** DB를 같이 쓰므로 테스트마다 겹치지 않는 번호. */
     static String uniquePhone() {
@@ -54,6 +57,24 @@ abstract class ApiTest {
         u.post("/api/guardians/invite-codes/redeem", "{\"code\":\"%s\",\"agreed\":true}".formatted(code))
                 .andExpect(status().isOk());
         return u;
+    }
+
+    /** 체험을 시작한 심사위원 = 동의·기록·약·QR이 다 갖춰진 가구의 보호자. */
+    TestUser judge() throws Exception {
+        TestUser u = anonymous();
+        u.post("/api/demo/sessions", "").andExpect(status().isCreated());
+        return u;
+    }
+
+    /** 보호자의 현재 QR 토큰 (없으면 새로 발급). */
+    String qrToken(TestUser guardian) throws Exception {
+        var current = guardian.get("/api/access-codes").andReturn().getResponse();
+        if (current.getStatus() == 200) return JsonPath.read(current.getContentAsString(UTF_8), "$.qrToken");
+        return read(guardian.post("/api/access-codes", "").andExpect(status().isCreated()), "$.qrToken");
+    }
+
+    java.util.UUID recipientOf(TestUser guardian) throws Exception {
+        return java.util.UUID.fromString(read(guardian.get("/api/auth/me"), "$.recipientId"));
     }
 
     static <T> T read(ResultActions result, String jsonPath) throws Exception {

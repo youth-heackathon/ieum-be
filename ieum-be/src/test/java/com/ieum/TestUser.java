@@ -6,6 +6,8 @@ import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
+import java.util.concurrent.atomic.AtomicInteger;
+
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
@@ -13,15 +15,25 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 /** 브라우저처럼 세션을 들고 다니며 API를 부르는 테스트 사용자. */
 class TestUser {
 
+    private static final AtomicInteger IPS = new AtomicInteger();
+
     private final MockMvc mvc;
+    private final String ip; // 사용자마다 다른 IP → IP당 제한이 테스트끼리 섞이지 않는다
     private MockHttpSession session = new MockHttpSession();
 
     TestUser(MockMvc mvc) {
         this.mvc = mvc;
+        int n = IPS.incrementAndGet();
+        this.ip = "10.%d.%d.%d".formatted(n >> 16 & 255, n >> 8 & 255, n & 255);
+    }
+
+    String ip() {
+        return ip;
     }
 
     ResultActions call(MockHttpServletRequestBuilder req) throws Exception {
-        ResultActions result = mvc.perform(req.session(session).contentType(APPLICATION_JSON));
+        ResultActions result = mvc.perform(req.session(session).contentType(APPLICATION_JSON)
+                .with(r -> { r.setRemoteAddr(ip); return r; }));
         var s = result.andReturn().getRequest().getSession(false); // 로그인하면 세션이 바뀐다
         if (s != null) session = (MockHttpSession) s;
         return result;
