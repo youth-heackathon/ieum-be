@@ -21,6 +21,12 @@ jobs:
           java-version: 17
       - uses: gradle/actions/setup-gradle@v6
       - run: ./gradlew test
+      - name: API 문서(docs/openapi.json)가 코드와 같은지
+        run: |
+          git diff --exit-code -- docs/openapi.json || {
+            echo "::error::API가 바뀌었는데 docs/openapi.json이 그대로예요. ./gradlew test를 돌려 바뀐 파일을 같이 커밋해 주세요"
+            exit 1
+          }
       - name: 실패하면 테스트 리포트 올리기 (요청·응답 본문 포함)
         if: failure()
         uses: actions/upload-artifact@v7

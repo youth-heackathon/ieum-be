@@ -1,5 +1,9 @@
 package com.ieum.care;
 
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
+import io.swagger.v3.oas.annotations.media.Schema;
+import com.ieum.ApiDocs;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.AssertTrue;
 import jakarta.validation.constraints.NotBlank;
@@ -17,6 +21,7 @@ import static com.ieum.auth.AuthController.GUARDIAN;
 import static org.springframework.http.HttpStatus.*;
 
 /** 보호자 연결: 핵심 보호자가 초대코드 발급 → 다른 보호자가 입력·동의 → 연결. */
+@Tag(name = ApiDocs.LINK)
 @RestController
 @RequestMapping("/api/guardians")
 public class GuardianController {
@@ -28,7 +33,7 @@ public class GuardianController {
 
     record RedeemReq(@NotBlank String code, @AssertTrue(message = "연결에 동의해야 해요") boolean agreed) {}
 
-    record Linked(UUID id, String name, String role, OffsetDateTime joinedAt) {}
+    record Linked(UUID id, String name, @Schema(allowableValues = {"primary", "member"}) String role, OffsetDateTime joinedAt) {}
 
     private final JdbcClient db;
 
@@ -36,7 +41,7 @@ public class GuardianController {
         this.db = db;
     }
 
-    /** 8자리, 24시간, 1회용. */
+    @Operation(summary = "초대코드 발급 (핵심 보호자)", description = "8자리, 24시간, 1회용. 헷갈리는 0·O·1·I는 쓰지 않는다.")
     @PostMapping("/invite-codes")
     @ResponseStatus(CREATED)
     public Invite issue(@SessionAttribute(GUARDIAN) UUID me) {
@@ -48,6 +53,7 @@ public class GuardianController {
                 .params(m.recipientId(), randomCode(8), me).query(Invite.class).single();
     }
 
+    @Operation(summary = "초대코드 입력 → 연결", description = "agreed=true여야 연결된다. 소문자·공백은 괜찮다. 응답은 연결된 보호자 목록.")
     @PostMapping("/invite-codes/redeem")
     @Transactional
     public List<Linked> redeem(@Valid @RequestBody RedeemReq req, @SessionAttribute(GUARDIAN) UUID me) {
@@ -66,6 +72,7 @@ public class GuardianController {
         return list(me);
     }
 
+    @Operation(summary = "연결된 보호자 목록", description = "이름·역할·연결 시각. 전화번호는 보여 주지 않는다.")
     @GetMapping
     public List<Linked> list(@SessionAttribute(GUARDIAN) UUID me) {
         return db.sql("""

@@ -25,3 +25,9 @@ server:
       timeout: 7d
       cookie:
         same-site: lax
+
+# API 문서: /swagger-ui.html (스펙 /v3/api-docs). 저장소에는 docs/openapi.json으로 커밋된다
+springdoc:
+  override-with-generic-response: false   # 409 핸들러(ApiErrors)를 모든 API 응답에 끼워 넣지 않는다
+  writer-with-order-by-keys: true          # docs/openapi.json diff가 매번 같은 순서로 나오게
+  writer-with-default-pretty-printer: true
