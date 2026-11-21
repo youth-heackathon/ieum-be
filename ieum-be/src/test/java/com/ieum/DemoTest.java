@@ -43,7 +43,7 @@ class DemoTest extends ApiTest {
         assertEquals(3L, count("care_records where recipient_id = ? and confirmed_at is not null and verify_status = 'pass'", r));
         assertEquals(1L, count("care_records where recipient_id = ? and emergency_visible", r));
         assertEquals(2L, count("medications where recipient_id = ? and emergency_visible", r));
-        assertEquals(1L, count("medications where recipient_id = ? and high_risk", r));
+        assertEquals(1L, count("medications where recipient_id = ? and caution = '혈액희석제'", r));
     }
 
     @Test

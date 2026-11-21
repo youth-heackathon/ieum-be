@@ -36,7 +36,8 @@ class EmergencyTest extends ApiTest {
                 .andExpect(jsonPath("$.items[0].summary").value("페니실린 알레르기가 있어요"))
                 .andExpect(jsonPath("$.medications.length()").value(2))
                 .andExpect(jsonPath("$.medications[0].name").value("와파린정 2mg"))
-                .andExpect(jsonPath("$.medications[0].highRisk").value(true));
+                .andExpect(jsonPath("$.medications[0].caution").value("혈액희석제"))
+                .andExpect(jsonPath("$.medications[1].caution").doesNotExist());
     }
 
     @Test
