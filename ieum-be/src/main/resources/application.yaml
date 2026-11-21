@@ -7,6 +7,10 @@ spring:
     url: ${DB_URL}
     username: ${DB_USERNAME}
     password: ${DB_PASSWORD}
+    hikari:
+      data-source-properties:
+        # DB 오류 메시지에 행 값(입력 원문·전화번호)이 실려 로그에 남지 않게 한다 (FR-11.2)
+        logServerErrorDetail: false
   mvc:
     problemdetails:
       enabled: true

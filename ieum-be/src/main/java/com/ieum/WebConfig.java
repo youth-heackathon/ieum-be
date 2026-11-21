@@ -36,6 +36,6 @@ public class WebConfig implements WebMvcConfigurer {
                 if (session != null && session.getAttribute(AuthController.GUARDIAN) != null) return true;
                 throw new ResponseStatusException(UNAUTHORIZED, "로그인이 필요해요");
             }
-        }).addPathPatterns("/api/**").excludePathPatterns("/api/auth/**");
+        }).addPathPatterns("/api/**").excludePathPatterns("/api/auth/**", "/api/demo/sessions");
     }
 }

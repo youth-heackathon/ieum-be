@@ -53,9 +53,7 @@ public class AuthController {
     public Map<String, Object> verifyOtp(@Valid @RequestBody VerifyReq req, HttpServletRequest http) {
         if (!MOCK_OTP.equals(req.code())) throw new ResponseStatusException(BAD_REQUEST, "인증번호가 맞지 않아요");
         String phone = req.phone().replaceAll("\\D", "");
-        HttpSession old = http.getSession(false);
-        if (old != null) old.invalidate(); // 세션 고정 공격 방지 + 이전 로그인 정리
-        HttpSession session = http.getSession(true);
+        HttpSession session = freshSession(http);
         session.setAttribute(VERIFIED_PHONE, phone);
         var id = db.sql("select id from guardians where phone = ?").param(phone).query(UUID.class).optional();
         id.ifPresent(g -> session.setAttribute(GUARDIAN, g));
@@ -81,6 +79,13 @@ public class AuthController {
                         where g.id = ?""")
                 .param(id).query(Me.class).optional()
                 .orElseThrow(() -> new ResponseStatusException(UNAUTHORIZED, "로그인이 필요해요"));
+    }
+
+    /** 로그인·체험 시작 때마다 새 세션: 세션 고정 공격 방지 + 이전 로그인·체험 정리. */
+    public static HttpSession freshSession(HttpServletRequest http) {
+        HttpSession old = http.getSession(false);
+        if (old != null) old.invalidate();
+        return http.getSession(true);
     }
 
     @PostMapping("/logout")
