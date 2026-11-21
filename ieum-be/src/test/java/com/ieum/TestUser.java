@@ -27,6 +27,10 @@ class TestUser {
         return result;
     }
 
+    String sessionId() {
+        return session.getId();
+    }
+
     ResultActions get(String url) throws Exception {
         return call(MockMvcRequestBuilders.get(url));
     }
