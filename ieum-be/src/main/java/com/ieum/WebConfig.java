@@ -4,7 +4,10 @@ import com.ieum.auth.AuthController;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.session.web.http.CookieSerializer;
+import org.springframework.session.web.http.DefaultCookieSerializer;
 import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.server.ResponseStatusException;
 import org.springframework.web.servlet.HandlerInterceptor;
@@ -16,6 +19,18 @@ import static org.springframework.http.HttpStatus.UNAUTHORIZED;
 
 @Configuration
 public class WebConfig implements WebMvcConfigurer {
+
+    /**
+     * 세션 쿠키(SESSION): HttpOnly·SameSite=Lax, HTTPS면 Secure(프록시 뒤 판단은 forward-headers-strategy).
+     * 명시하지 않으면 Spring Session이 서블릿 컨테이너 설정에서 가져와 환경마다 달라진다 (테스트 환경엔 플래그가 빠짐).
+     */
+    @Bean
+    CookieSerializer cookieSerializer() {
+        DefaultCookieSerializer serializer = new DefaultCookieSerializer();
+        serializer.setUseHttpOnlyCookie(true);
+        serializer.setSameSite("Lax");
+        return serializer;
+    }
 
     @Value("${CORS_ALLOWED_ORIGINS:http://localhost:5173}")
     String[] corsOrigins;

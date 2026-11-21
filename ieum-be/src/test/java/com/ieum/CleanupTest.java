@@ -8,7 +8,7 @@ import java.util.UUID;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
-@DisplayName("보관·삭제 (ieum_cleanup, pg_cron이 10분마다 실행)")
+@DisplayName("보관·삭제 (ieum_cleanup: 데모에선 필요할 때 직접 실행)")
 class CleanupTest extends ApiTest {
 
     void cleanup() {

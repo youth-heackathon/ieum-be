@@ -1,25 +1,27 @@
 package com.ieum;
 
-import org.springframework.mock.web.MockHttpSession;
+import jakarta.servlet.http.Cookie;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.test.web.servlet.ResultActions;
 import org.springframework.test.web.servlet.request.MockHttpServletRequestBuilder;
 import org.springframework.test.web.servlet.request.MockMvcRequestBuilders;
 
+import java.util.Base64;
 import java.util.concurrent.atomic.AtomicInteger;
 
+import static java.nio.charset.StandardCharsets.UTF_8;
 import static org.springframework.http.MediaType.APPLICATION_JSON;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
-/** 브라우저처럼 세션을 들고 다니며 API를 부르는 테스트 사용자. */
+/** 브라우저처럼 세션 쿠키를 받아 두었다가 다음 요청에 실어 보내는 테스트 사용자. */
 class TestUser {
 
     private static final AtomicInteger IPS = new AtomicInteger();
 
     private final MockMvc mvc;
     private final String ip; // 사용자마다 다른 IP → IP당 제한이 테스트끼리 섞이지 않는다
-    private MockHttpSession session = new MockHttpSession();
+    private Cookie session;  // 서버가 준 SESSION 쿠키 (세션은 DB에 있다)
 
     TestUser(MockMvc mvc) {
         this.mvc = mvc;
@@ -32,15 +34,20 @@ class TestUser {
     }
 
     ResultActions call(MockHttpServletRequestBuilder req) throws Exception {
-        ResultActions result = mvc.perform(req.session(session).contentType(APPLICATION_JSON)
-                .with(r -> { r.setRemoteAddr(ip); return r; }));
-        var s = result.andReturn().getRequest().getSession(false); // 로그인하면 세션이 바뀐다
-        if (s != null) session = (MockHttpSession) s;
+        if (session != null) req.cookie(session);
+        ResultActions result = mvc.perform(req.contentType(APPLICATION_JSON).with(r -> { r.setRemoteAddr(ip); return r; }));
+        Cookie set = result.andReturn().getResponse().getCookie("SESSION"); // 로그인·로그아웃하면 바뀐다
+        if (set != null) session = set.getMaxAge() == 0 ? null : set;
         return result;
     }
 
+    /** DB(spring_session.session_id)에 저장된 세션 id. 세션이 없으면 null. */
     String sessionId() {
-        return session.getId();
+        return session == null ? null : new String(Base64.getDecoder().decode(session.getValue()), UTF_8);
+    }
+
+    Cookie sessionCookie() {
+        return session;
     }
 
     ResultActions get(String url) throws Exception {

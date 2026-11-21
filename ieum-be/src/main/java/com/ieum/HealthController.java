@@ -16,7 +16,7 @@ public class HealthController {
         this.db = db;
     }
 
-    @Operation(summary = "헬스체크", description = "DB까지 확인한다. 주기적으로 호출하면 Supabase 비활성 정지도 막는다.")
+    @Operation(summary = "헬스체크", description = "DB까지 확인한다. Railway 헬스체크 경로로 쓴다.")
     @GetMapping("/health")
     public String health() {
         db.sql("select 1").query(Integer.class).single();
