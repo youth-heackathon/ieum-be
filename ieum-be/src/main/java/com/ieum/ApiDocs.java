@@ -34,7 +34,7 @@ public class ApiDocs {
             ## 로그인 (세션 쿠키)
             1. `POST /api/auth/otp/verify` — 인증번호는 모의라서 항상 `000000`
             2. 처음 쓰는 번호면 `POST /api/auth/signup`
-            3. 이후 요청에 쿠키(`JSESSIONID`)를 실어 보내면 로그인 상태. Swagger에서 그대로 호출해도 쿠키가 붙는다
+            3. 이후 요청에 세션 쿠키(`SESSION`)를 실어 보내면 로그인 상태. Swagger에서 그대로 호출해도 쿠키가 붙는다. 세션은 DB에 저장돼 재배포해도 유지된다
 
             로그인 없이 쓰는 것: `/api/auth/**`, `/api/public/**`, `POST /api/demo/sessions`, `/health`
 

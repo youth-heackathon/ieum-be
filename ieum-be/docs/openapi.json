@@ -1,7 +1,7 @@
 {
   "openapi" : "3.1.0",
   "info" : {
-    "description" : "이음수첩 백엔드 API. 사람이 읽는 오류 문장은 모두 `detail`에 한국어로 온다.\n\n## 로그인 (세션 쿠키)\n1. `POST /api/auth/otp/verify` — 인증번호는 모의라서 항상 `000000`\n2. 처음 쓰는 번호면 `POST /api/auth/signup`\n3. 이후 요청에 쿠키(`JSESSIONID`)를 실어 보내면 로그인 상태. Swagger에서 그대로 호출해도 쿠키가 붙는다\n\n로그인 없이 쓰는 것: `/api/auth/**`, `/api/public/**`, `POST /api/demo/sessions`, `/health`\n\n## 오류 형식 (ProblemDetail)\n```json\n{\"status\": 409, \"title\": \"Conflict\", \"detail\": \"이미 처리됐거나 10분이 지난 요청이에요\"}\n```\n400 입력 오류 · 401 로그인 필요 · 403 권한·동의 없음 · 404 없음 · 409 상태 충돌 · 429 횟수 제한\n\n## 흐름\n- **긴급조회 (의료진)**: QR이면 `/a/{qrToken}` 그대로, 8자리면 `resolve`로 토큰을 받고 → `emergency`\n- **상세조회 (간병인)**: `detail-requests` 요청 → 보호자가 `approve` (10분 안) → 요청자가 상태를 2초마다 폴링하다가 `viewToken`을 받으면 → `detail/{viewToken}` (60분)\n- **체험**: `POST /api/demo/sessions` → 이후 보호자 API가 그대로 동작. QR은 `GET /api/access-codes`, 폰은 `GET /api/public/access/{token}/demo`로 단계를 따라간다\n",
+    "description" : "이음수첩 백엔드 API. 사람이 읽는 오류 문장은 모두 `detail`에 한국어로 온다.\n\n## 로그인 (세션 쿠키)\n1. `POST /api/auth/otp/verify` — 인증번호는 모의라서 항상 `000000`\n2. 처음 쓰는 번호면 `POST /api/auth/signup`\n3. 이후 요청에 세션 쿠키(`SESSION`)를 실어 보내면 로그인 상태. Swagger에서 그대로 호출해도 쿠키가 붙는다. 세션은 DB에 저장돼 재배포해도 유지된다\n\n로그인 없이 쓰는 것: `/api/auth/**`, `/api/public/**`, `POST /api/demo/sessions`, `/health`\n\n## 오류 형식 (ProblemDetail)\n```json\n{\"status\": 409, \"title\": \"Conflict\", \"detail\": \"이미 처리됐거나 10분이 지난 요청이에요\"}\n```\n400 입력 오류 · 401 로그인 필요 · 403 권한·동의 없음 · 404 없음 · 409 상태 충돌 · 429 횟수 제한\n\n## 흐름\n- **긴급조회 (의료진)**: QR이면 `/a/{qrToken}` 그대로, 8자리면 `resolve`로 토큰을 받고 → `emergency`\n- **상세조회 (간병인)**: `detail-requests` 요청 → 보호자가 `approve` (10분 안) → 요청자가 상태를 2초마다 폴링하다가 `viewToken`을 받으면 → `detail/{viewToken}` (60분)\n- **체험**: `POST /api/demo/sessions` → 이후 보호자 API가 그대로 동작. QR은 `GET /api/access-codes`, 폰은 `GET /api/public/access/{token}/demo`로 단계를 따라간다\n",
     "title" : "이음수첩 API",
     "version" : "v1"
   },
@@ -726,7 +726,7 @@
     },
     "/health" : {
       "get" : {
-        "description" : "DB까지 확인한다. 주기적으로 호출하면 Supabase 비활성 정지도 막는다.",
+        "description" : "DB까지 확인한다. Railway 헬스체크 경로로 쓴다.",
         "operationId" : "health",
         "responses" : {
           "200" : {

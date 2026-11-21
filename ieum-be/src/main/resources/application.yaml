@@ -21,10 +21,9 @@ server:
   forward-headers-strategy: native
   servlet:
     session:
-      # ponytail: 메모리 세션이라 재배포하면 로그아웃된다. 인스턴스를 2개 이상 띄우면 spring-session-jdbc로
+      # 세션은 Postgres(spring_session, V4)에 저장 → 재배포·재시작해도 로그인·체험이 유지된다
+      # 쿠키(SESSION, HttpOnly, SameSite=Lax)는 WebConfig.cookieSerializer에서 정한다
       timeout: 7d
-      cookie:
-        same-site: lax
 
 # API 문서: /swagger-ui.html (스펙 /v3/api-docs). 저장소에는 docs/openapi.json으로 커밋된다
 springdoc:

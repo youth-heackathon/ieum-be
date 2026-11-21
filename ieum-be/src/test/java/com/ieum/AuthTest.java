@@ -5,6 +5,7 @@ import org.junit.jupiter.api.Test;
 
 import java.time.LocalDate;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertNotEquals;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.*;
 
@@ -111,10 +112,11 @@ class AuthTest extends ApiTest {
     @Test
     @DisplayName("인증할 때마다 세션이 새로 바뀐다 (세션 고정 공격 방지)")
     void sessionRotates() throws Exception {
-        TestUser u = anonymous();
+        TestUser u = guardian("박지은");
         String before = u.sessionId();
         u.post("/api/auth/otp/verify", verify(uniquePhone(), "000000"));
         assertNotEquals(before, u.sessionId());
+        assertEquals(0L, count("spring_session where session_id = ?", before), "이전 세션은 DB에서 지워진다");
     }
 
     @Test
