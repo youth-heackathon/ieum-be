@@ -168,8 +168,9 @@ class DetailRequestTest extends ApiTest {
                 .andExpect(jsonPath("$.records[?(@.category=='진정법')].quote")
                         .value("불안해하시면 손 잡고 고향의 봄 불러 드리면 금방 가라앉아요"))
                 .andExpect(jsonPath("$.medications[0].name").value("와파린정 2mg"))
-                .andExpect(jsonPath("$.medications[0].dose").value("하루 1번 아침 식후 1알"))
-                .andExpect(jsonPath("$.medications[0].highRisk").value(true))
+                .andExpect(jsonPath("$.medications[0].dose").value("1알"))
+                .andExpect(jsonPath("$.medications[0].timing").value("하루 1번 아침 식후"))
+                .andExpect(jsonPath("$.medications[0].caution").value("혈액희석제"))
                 .andExpect(jsonPath("$.address").doesNotExist());
     }
 

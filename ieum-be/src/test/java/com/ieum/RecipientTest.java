@@ -53,4 +53,27 @@ class RecipientTest extends ApiTest {
                 .andExpect(status().isBadRequest());
         u.get("/api/auth/me").andExpect(jsonPath("$.recipientId").doesNotExist());
     }
+
+    @Test
+    @DisplayName("보호대상자 정보를 보고, 연결된 보호자 누구나 고칠 수 있다 (보낸 것만 바뀐다)")
+    void viewAndEdit() throws Exception {
+        TestUser jieun = primary("박지은");
+        jieun.get("/api/recipients/me").andExpect(jsonPath("$.name").value("어머니"));
+        TestUser minsu = member(jieun, "박민수");
+        minsu.patch("/api/recipients/me", "{\"name\":\"김순자\"}")
+                .andExpect(jsonPath("$.name").value("김순자"))
+                .andExpect(jsonPath("$.birthDate").doesNotExist());
+        jieun.patch("/api/recipients/me", "{\"birthDate\":\"1946-09-03\"}")
+                .andExpect(jsonPath("$.name").value("김순자"))
+                .andExpect(jsonPath("$.birthDate").value("1946-09-03"));
+    }
+
+    @Test
+    @DisplayName("빈 이름이나 미래 생년월일로는 고칠 수 없다")
+    void invalidEdit() throws Exception {
+        TestUser u = primary("박지은");
+        u.patch("/api/recipients/me", "{\"name\":\" \"}").andExpect(status().isBadRequest());
+        u.patch("/api/recipients/me", "{\"birthDate\":\"%s\"}".formatted(LocalDate.now().plusDays(1))).andExpect(status().isBadRequest());
+        u.get("/api/recipients/me").andExpect(jsonPath("$.name").value("어머니"));
+    }
 }

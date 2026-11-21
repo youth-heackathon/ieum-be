@@ -62,6 +62,10 @@ class TestUser {
         return call(MockMvcRequestBuilders.patch(url).content(json));
     }
 
+    ResultActions delete(String url) throws Exception {
+        return call(MockMvcRequestBuilders.delete(url));
+    }
+
     TestUser signup(String phone, String name) throws Exception {
         post("/api/auth/otp/verify", "{\"phone\":\"%s\",\"code\":\"000000\"}".formatted(phone))
                 .andExpect(jsonPath("$.registered").value(false));

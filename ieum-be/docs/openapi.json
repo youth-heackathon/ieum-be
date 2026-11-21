@@ -1,7 +1,7 @@
 {
   "openapi" : "3.1.0",
   "info" : {
-    "description" : "이음수첩 백엔드 API. 사람이 읽는 오류 문장은 모두 `detail`에 한국어로 온다.\n\n## 로그인 (세션 쿠키)\n1. `POST /api/auth/otp/verify` — 인증번호는 모의라서 항상 `000000`\n2. 처음 쓰는 번호면 `POST /api/auth/signup`\n3. 이후 요청에 세션 쿠키(`SESSION`)를 실어 보내면 로그인 상태. Swagger에서 그대로 호출해도 쿠키가 붙는다. 세션은 DB에 저장돼 재배포해도 유지된다\n\n로그인 없이 쓰는 것: `/api/auth/**`, `/api/public/**`, `POST /api/demo/sessions`, `/health`\n\n## 오류 형식 (ProblemDetail)\n```json\n{\"status\": 409, \"title\": \"Conflict\", \"detail\": \"이미 처리됐거나 10분이 지난 요청이에요\"}\n```\n400 입력 오류 · 401 로그인 필요 · 403 권한·동의 없음 · 404 없음 · 409 상태 충돌 · 429 횟수 제한\n\n## 흐름\n- **긴급조회 (의료진)**: QR이면 `/a/{qrToken}` 그대로, 8자리면 `resolve`로 토큰을 받고 → `emergency`\n- **상세조회 (간병인)**: `detail-requests` 요청 → 보호자가 `approve` (10분 안) → 요청자가 상태를 2초마다 폴링하다가 `viewToken`을 받으면 → `detail/{viewToken}` (60분)\n- **체험**: `POST /api/demo/sessions` → 이후 보호자 API가 그대로 동작. QR은 `GET /api/access-codes`, 폰은 `GET /api/public/access/{token}/demo`로 단계를 따라간다\n",
+    "description" : "이음수첩 백엔드 API. 사람이 읽는 오류 문장은 모두 `detail`에 한국어로 온다.\n\n## 로그인 (세션 쿠키)\n1. `POST /api/auth/otp/verify` — 인증번호는 모의라서 항상 `000000`\n2. 처음 쓰는 번호면 `POST /api/auth/signup`\n3. 이후 요청에 세션 쿠키(`SESSION`)를 실어 보내면 로그인 상태. Swagger에서 그대로 호출해도 쿠키가 붙는다. 세션은 DB에 저장돼 재배포해도 유지된다\n\n로그인 없이 쓰는 것: `/api/auth/**`, `/api/public/**`, `POST /api/demo/sessions`, `/health`\n\n## 오류 형식 (ProblemDetail)\n```json\n{\"status\": 409, \"title\": \"Conflict\", \"detail\": \"이미 처리됐거나 10분이 지난 요청이에요\"}\n```\n400 입력 오류 · 401 로그인 필요 · 403 권한·동의 없음 · 404 없음 · 409 상태 충돌 · 429 횟수 제한\n\n## 흐름\n- **긴급조회 (의료진)**: QR이면 `/a/{qrToken}` 그대로, 8자리면 `resolve`로 토큰을 받고 → `emergency`\n- **상세조회 (간병인)**: `detail-requests` 요청 → 보호자가 `approve` (10분 안) → 요청자가 상태를 2초마다 폴링하다가 `viewToken`을 받으면 → `detail/{viewToken}` (60분)\n- **체험**: `POST /api/demo/sessions` → 이후 보호자 API가 그대로 동작. 노트북은 `GET /api/home` 하나만 폴링(단계는 `demo.step`), QR은 `GET /api/access-codes`, 폰은 `GET /api/public/access/{token}/demo`로 단계를 따라간다\n",
     "title" : "이음수첩 API",
     "version" : "v1"
   },
@@ -16,6 +16,10 @@
     "name" : "보호대상자·동의"
   }, {
     "name" : "보호자 연결"
+  }, {
+    "name" : "홈 (보호자)"
+  }, {
+    "name" : "기록·약 관리 (보호자)"
   }, {
     "name" : "QR·열람 기록·상세조회 동의·알림 (보호자)"
   }, {
@@ -406,7 +410,7 @@
     "/api/guardians" : {
       "get" : {
         "description" : "이름·역할·연결 시각. 전화번호는 보여 주지 않는다.",
-        "operationId" : "list",
+        "operationId" : "list_2",
         "responses" : {
           "200" : {
             "content" : {
@@ -477,6 +481,135 @@
         },
         "summary" : "초대코드 입력 → 연결",
         "tags" : [ "보호자 연결" ]
+      }
+    },
+    "/api/home" : {
+      "get" : {
+        "description" : "보호대상자, 대기 중인 상세조회 요청, 안 읽은 알림 수, 30일 지난 기록, 최근 열람, 체험 단계를 한 번에 준다.",
+        "operationId" : "home",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Home"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "홈 (폴링)",
+        "tags" : [ "홈 (보호자)" ]
+      }
+    },
+    "/api/medications" : {
+      "get" : {
+        "description" : "주의 약이 먼저 온다.",
+        "operationId" : "list",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/Medication"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "약 목록",
+        "tags" : [ "기록·약 관리 (보호자)" ]
+      },
+      "post" : {
+        "description" : "보호자가 직접 적은 약은 바로 확정된다(맞아요, 저장). 긴급조회 노출은 기본으로 켜진다.",
+        "operationId" : "create_1",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/NewMedication"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "201" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Medication"
+                }
+              }
+            },
+            "description" : "Created"
+          }
+        },
+        "summary" : "약 직접 등록",
+        "tags" : [ "기록·약 관리 (보호자)" ]
+      }
+    },
+    "/api/medications/{id}" : {
+      "delete" : {
+        "operationId" : "delete_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "summary" : "약 지우기",
+        "tags" : [ "기록·약 관리 (보호자)" ]
+      },
+      "patch" : {
+        "description" : "보낸 것만 바뀐다. 이름 숨기기(nameHidden)와 긴급조회 노출도 여기서. timing·caution은 빈 문자열을 보내면 지운다.",
+        "operationId" : "update_1",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/MedicationPatch"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Medication"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "약 고치기",
+        "tags" : [ "기록·약 관리 (보호자)" ]
       }
     },
     "/api/notifications" : {
@@ -611,7 +744,7 @@
     },
     "/api/public/access/{token}/emergency" : {
       "post" : {
-        "description" : "인증·대기 없음. 보호자가 긴급조회용으로 고른 확정 정보만, 약은 종류·고위험만 준다. 조회할 때마다 기기정보를 기록하고 보호자 전원에게 알린다. allowed=false면 보호자가 공개에 동의하지 않은 것.",
+        "description" : "인증·대기 없음. 보호자가 긴급조회용으로 고른 확정 정보만 준다. 약은 이름(보호자가 숨기면 null)과 주의 약 종류만, 용량은 주지 않는다. 조회할 때마다 기기정보를 기록하고 보호자 전원에게 알린다. allowed=false면 보호자가 공개에 동의하지 않은 것.",
         "operationId" : "emergency",
         "parameters" : [ {
           "in" : "path",
@@ -724,6 +857,163 @@
         "tags" : [ "보호대상자·동의" ]
       }
     },
+    "/api/recipients/me" : {
+      "get" : {
+        "operationId" : "recipient",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Recipient"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "보호대상자 정보",
+        "tags" : [ "보호대상자·동의" ]
+      },
+      "patch" : {
+        "description" : "보낸 것만 바뀐다. 연결된 보호자 누구나.",
+        "operationId" : "updateRecipient",
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RecipientPatch"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/Recipient"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "보호대상자 정보 고치기",
+        "tags" : [ "보호대상자·동의" ]
+      }
+    },
+    "/api/records" : {
+      "get" : {
+        "description" : "확인 전(confirmedAt=null)과 확인된 기록 모두. stale=true면 30일 지남 배지.",
+        "operationId" : "list_1",
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "type" : "array",
+                  "items" : {
+                    "$ref" : "#/components/schemas/CareRecord"
+                  }
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "기록 목록",
+        "tags" : [ "기록·약 관리 (보호자)" ]
+      }
+    },
+    "/api/records/{id}" : {
+      "delete" : {
+        "operationId" : "delete",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "204" : {
+            "description" : "No Content"
+          }
+        },
+        "summary" : "기록 지우기",
+        "tags" : [ "기록·약 관리 (보호자)" ]
+      },
+      "patch" : {
+        "description" : "보낸 것만 바뀐다. 고치면 마지막 확인일도 오늘이 된다. 확인된 기록만.",
+        "operationId" : "update",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "requestBody" : {
+          "content" : {
+            "application/json" : {
+              "schema" : {
+                "$ref" : "#/components/schemas/RecordPatch"
+              }
+            }
+          },
+          "required" : true
+        },
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CareRecord"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "기록 고치기·긴급조회 노출 바꾸기",
+        "tags" : [ "기록·약 관리 (보호자)" ]
+      }
+    },
+    "/api/records/{id}/check" : {
+      "post" : {
+        "description" : "마지막 확인일을 오늘로 바꿔 30일 배지를 없앤다.",
+        "operationId" : "check",
+        "parameters" : [ {
+          "in" : "path",
+          "name" : "id",
+          "required" : true,
+          "schema" : {
+            "type" : "string",
+            "format" : "uuid"
+          }
+        } ],
+        "responses" : {
+          "200" : {
+            "content" : {
+              "*/*" : {
+                "schema" : {
+                  "$ref" : "#/components/schemas/CareRecord"
+                }
+              }
+            },
+            "description" : "OK"
+          }
+        },
+        "summary" : "다시 확인 (내용 그대로 맞아요)",
+        "tags" : [ "기록·약 관리 (보호자)" ]
+      }
+    },
     "/health" : {
       "get" : {
         "description" : "DB까지 확인한다. Railway 헬스체크 경로로 쓴다.",
@@ -759,6 +1049,43 @@
           },
           "qrToken" : {
             "type" : "string"
+          }
+        }
+      },
+      "CareRecord" : {
+        "type" : "object",
+        "properties" : {
+          "category" : {
+            "type" : "string"
+          },
+          "confirmedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "emergencyVisible" : {
+            "type" : "boolean"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "lastCheckedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "quote" : {
+            "type" : "string"
+          },
+          "stale" : {
+            "type" : "boolean",
+            "description" : "마지막 확인이 30일을 넘음 → 배지"
+          },
+          "summary" : {
+            "type" : "string"
+          },
+          "verifyStatus" : {
+            "type" : "string",
+            "enum" : [ "pass", "review", "blocked" ]
           }
         }
       },
@@ -850,6 +1177,23 @@
           }
         }
       },
+      "DemoState" : {
+        "type" : "object",
+        "properties" : {
+          "expiresAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "sessionId" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "step" : {
+            "type" : "integer",
+            "format" : "int32"
+          }
+        }
+      },
       "DemoStep" : {
         "type" : "object",
         "properties" : {
@@ -894,11 +1238,11 @@
       "DetailMed" : {
         "type" : "object",
         "properties" : {
-          "dose" : {
+          "caution" : {
             "type" : "string"
           },
-          "highRisk" : {
-            "type" : "boolean"
+          "dose" : {
+            "type" : "string"
           },
           "name" : {
             "type" : "string"
@@ -907,6 +1251,9 @@
             "type" : "string"
           },
           "quote" : {
+            "type" : "string"
+          },
+          "timing" : {
             "type" : "string"
           }
         }
@@ -1002,11 +1349,57 @@
       "EmergencyMed" : {
         "type" : "object",
         "properties" : {
-          "highRisk" : {
-            "type" : "boolean"
+          "caution" : {
+            "type" : "string",
+            "description" : "주의 약 종류 (예: 혈액희석제 → 화면에 '혈액희석제 복용 중'). null이면 일반 약"
           },
           "name" : {
-            "type" : "string"
+            "type" : "string",
+            "description" : "보호자가 이름을 숨기면 null"
+          }
+        }
+      },
+      "Home" : {
+        "type" : "object",
+        "properties" : {
+          "demo" : {
+            "$ref" : "#/components/schemas/DemoState",
+            "description" : "체험 세션일 때만. 실제 보호자는 null"
+          },
+          "hasAccessCode" : {
+            "type" : "boolean",
+            "description" : "QR·8자리 코드를 발급했는지"
+          },
+          "pendingDetailRequests" : {
+            "type" : "array",
+            "items" : {
+              "$ref" : "#/components/schemas/PendingRequest"
+            }
+          },
+          "recentAccess" : {
+            "type" : "array",
+            "description" : "최근 열람 5건",
+            "items" : {
+              "$ref" : "#/components/schemas/RecentAccess"
+            }
+          },
+          "recipient" : {
+            "$ref" : "#/components/schemas/RecipientSummary"
+          },
+          "role" : {
+            "type" : "string",
+            "enum" : [ "primary", "member" ]
+          },
+          "staleRecords" : {
+            "type" : "array",
+            "description" : "마지막 확인이 30일 지난 기록",
+            "items" : {
+              "$ref" : "#/components/schemas/StaleRecord"
+            }
+          },
+          "unreadNotifications" : {
+            "type" : "integer",
+            "format" : "int64"
           }
         }
       },
@@ -1085,6 +1478,105 @@
           }
         }
       },
+      "Medication" : {
+        "type" : "object",
+        "properties" : {
+          "caution" : {
+            "type" : "string",
+            "description" : "주의 약 종류 (예: 혈액희석제). null이면 일반 약"
+          },
+          "confirmedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "dose" : {
+            "type" : "string"
+          },
+          "emergencyVisible" : {
+            "type" : "boolean"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "name" : {
+            "type" : "string"
+          },
+          "nameHidden" : {
+            "type" : "boolean",
+            "description" : "1단계(긴급조회)에서 약 이름 숨김. 주의 약 종류는 보인다"
+          },
+          "timing" : {
+            "type" : "string"
+          }
+        }
+      },
+      "MedicationPatch" : {
+        "type" : "object",
+        "properties" : {
+          "caution" : {
+            "type" : "string",
+            "maxLength" : 50,
+            "minLength" : 0
+          },
+          "dose" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "emergencyVisible" : {
+            "type" : "boolean"
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "nameHidden" : {
+            "type" : "boolean"
+          },
+          "timing" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          }
+        }
+      },
+      "NewMedication" : {
+        "type" : "object",
+        "properties" : {
+          "caution" : {
+            "type" : "string",
+            "description" : "식약처 대조가 붙기 전까지는 직접 적는다",
+            "maxLength" : 50,
+            "minLength" : 0
+          },
+          "dose" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "emergencyVisible" : {
+            "type" : "boolean",
+            "default" : true
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          },
+          "nameHidden" : {
+            "type" : "boolean",
+            "default" : false
+          },
+          "timing" : {
+            "type" : "string",
+            "maxLength" : 100,
+            "minLength" : 0
+          }
+        },
+        "required" : [ "dose", "name" ]
+      },
       "Notification" : {
         "type" : "object",
         "properties" : {
@@ -1113,10 +1605,6 @@
       "PendingRequest" : {
         "type" : "object",
         "properties" : {
-          "createdAt" : {
-            "type" : "string",
-            "format" : "date-time"
-          },
           "deadlineAt" : {
             "type" : "string",
             "format" : "date-time"
@@ -1128,9 +1616,6 @@
           "remainingSeconds" : {
             "type" : "integer",
             "format" : "int64"
-          },
-          "requesterPhone" : {
-            "type" : "string"
           },
           "userAgent" : {
             "type" : "string"
@@ -1148,6 +1633,22 @@
         },
         "required" : [ "phone" ]
       },
+      "RecentAccess" : {
+        "type" : "object",
+        "properties" : {
+          "createdAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "kind" : {
+            "type" : "string",
+            "enum" : [ "emergency", "detail_request", "detail_view" ]
+          },
+          "userAgent" : {
+            "type" : "string"
+          }
+        }
+      },
       "Recipient" : {
         "type" : "object",
         "properties" : {
@@ -1161,6 +1662,20 @@
           },
           "name" : {
             "type" : "string"
+          }
+        }
+      },
+      "RecipientPatch" : {
+        "type" : "object",
+        "properties" : {
+          "birthDate" : {
+            "type" : "string",
+            "format" : "date"
+          },
+          "name" : {
+            "type" : "string",
+            "maxLength" : 50,
+            "minLength" : 0
           }
         }
       },
@@ -1178,6 +1693,31 @@
           }
         },
         "required" : [ "name" ]
+      },
+      "RecipientSummary" : {
+        "type" : "object",
+        "properties" : {
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "name" : {
+            "type" : "string"
+          }
+        }
+      },
+      "RecordPatch" : {
+        "type" : "object",
+        "properties" : {
+          "emergencyVisible" : {
+            "type" : "boolean"
+          },
+          "summary" : {
+            "type" : "string",
+            "maxLength" : 500,
+            "minLength" : 0
+          }
+        }
       },
       "RedeemReq" : {
         "type" : "object",
@@ -1228,6 +1768,25 @@
           }
         },
         "required" : [ "birthDate", "name" ]
+      },
+      "StaleRecord" : {
+        "type" : "object",
+        "properties" : {
+          "category" : {
+            "type" : "string"
+          },
+          "id" : {
+            "type" : "string",
+            "format" : "uuid"
+          },
+          "lastCheckedAt" : {
+            "type" : "string",
+            "format" : "date-time"
+          },
+          "summary" : {
+            "type" : "string"
+          }
+        }
       },
       "StepReq" : {
         "type" : "object",

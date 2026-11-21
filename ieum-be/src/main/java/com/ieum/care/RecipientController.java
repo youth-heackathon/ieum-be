@@ -20,6 +20,7 @@ import java.util.Map;
 import java.util.UUID;
 
 import static com.ieum.auth.AuthController.GUARDIAN;
+import static org.springframework.http.HttpStatus.BAD_REQUEST;
 import static org.springframework.http.HttpStatus.CONFLICT;
 import static org.springframework.http.HttpStatus.CREATED;
 
@@ -34,6 +35,8 @@ public class RecipientController {
     record RecipientReq(@NotBlank @Size(max = 50) String name, @Past LocalDate birthDate) {}
 
     record Recipient(UUID id, String name, LocalDate birthDate) {}
+
+    record RecipientPatch(@Size(max = 50) String name, @Past LocalDate birthDate) {}
 
     /** selfConsent: 보호대상자 본인 동의, guardianOfRecord: 후견인 있음. 모두 바꿀 것만 보내면 된다 (빠진 값은 유지). */
     record ConsentReq(Boolean selfConsent, Boolean guardianOfRecord, @NotNull Map<Item, @NotNull Boolean> items) {}
@@ -62,6 +65,23 @@ public class RecipientController {
         db.sql("insert into recipient_guardians (recipient_id, guardian_id, role, consent_at) values (?, ?, 'primary', now())")
                 .params(r.id(), me).update();
         return r;
+    }
+
+    @Operation(summary = "보호대상자 정보")
+    @GetMapping("/recipients/me")
+    public Recipient recipient(@SessionAttribute(GUARDIAN) UUID me) {
+        return db.sql("select id, name, birth_date from care_recipients where id = ?")
+                .param(Membership.of(db, me).recipientId()).query(Recipient.class).single();
+    }
+
+    @Operation(summary = "보호대상자 정보 고치기", description = "보낸 것만 바뀐다. 연결된 보호자 누구나.")
+    @PatchMapping("/recipients/me")
+    public Recipient updateRecipient(@Valid @RequestBody RecipientPatch req, @SessionAttribute(GUARDIAN) UUID me) {
+        if (req.name() != null && req.name().isBlank()) throw new ResponseStatusException(BAD_REQUEST, "이름을 적어 주세요");
+        return db.sql("update care_recipients set name = coalesce(?, name), birth_date = coalesce(?::date, birth_date) "
+                        + "where id = ? returning id, name, birth_date")
+                .params(req.name() == null ? null : req.name().trim(), req.birthDate(), Membership.of(db, me).recipientId())
+                .query(Recipient.class).single();
     }
 
     @Operation(summary = "항목별 동의 저장", description = "보낸 것만 바뀐다. 긴급조회·상세조회 공개는 그 항목 동의와 함께 본인 동의(selfConsent)나 후견인(guardianOfRecord)이 있어야 서버가 허용한다.")

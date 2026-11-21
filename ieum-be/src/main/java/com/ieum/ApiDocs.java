@@ -24,6 +24,8 @@ public class ApiDocs {
     public static final String AUTH = "가입·로그인";
     public static final String RECIPIENT = "보호대상자·동의";
     public static final String LINK = "보호자 연결";
+    public static final String HOME = "홈 (보호자)";
+    public static final String CARE = "기록·약 관리 (보호자)";
     public static final String GUARDIAN_ACCESS = "QR·열람 기록·상세조회 동의·알림 (보호자)";
     public static final String PUBLIC = "조회하는 쪽 (로그인 없음)";
     public static final String DEMO = "체험 모드";
@@ -47,7 +49,7 @@ public class ApiDocs {
             ## 흐름
             - **긴급조회 (의료진)**: QR이면 `/a/{qrToken}` 그대로, 8자리면 `resolve`로 토큰을 받고 → `emergency`
             - **상세조회 (간병인)**: `detail-requests` 요청 → 보호자가 `approve` (10분 안) → 요청자가 상태를 2초마다 폴링하다가 `viewToken`을 받으면 → `detail/{viewToken}` (60분)
-            - **체험**: `POST /api/demo/sessions` → 이후 보호자 API가 그대로 동작. QR은 `GET /api/access-codes`, 폰은 `GET /api/public/access/{token}/demo`로 단계를 따라간다
+            - **체험**: `POST /api/demo/sessions` → 이후 보호자 API가 그대로 동작. 노트북은 `GET /api/home` 하나만 폴링(단계는 `demo.step`), QR은 `GET /api/access-codes`, 폰은 `GET /api/public/access/{token}/demo`로 단계를 따라간다
             """;
 
     @Bean
@@ -55,7 +57,7 @@ public class ApiDocs {
         return new OpenAPI()
                 .info(new Info().title("이음수첩 API").version("v1").description(GUIDE))
                 .servers(List.of(new Server().url("/"))) // 같은 출처 기준 (Vercel rewrites로 /api 프록시)
-                .tags(List.of(COMMON, AUTH, RECIPIENT, LINK, GUARDIAN_ACCESS, PUBLIC, DEMO).stream()
+                .tags(List.of(COMMON, AUTH, RECIPIENT, LINK, HOME, CARE, GUARDIAN_ACCESS, PUBLIC, DEMO).stream()
                         .map(name -> new Tag().name(name)).toList());
     }
 }

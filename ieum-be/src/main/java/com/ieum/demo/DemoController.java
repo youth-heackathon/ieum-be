@@ -69,13 +69,13 @@ public class DemoController {
                      '저녁 5시쯤 되면 집에 간다고 자꾸 나가려고 하세요', false)
                 ) v (category, summary, quote, emergency)
             ), meds as (
-                insert into medications (recipient_id, name, dose, quote_text, verify_status, ai_source,
-                                         emergency_visible, high_risk, confirmed_at)
-                select r.id, v.name, v.dose, v.quote, 'pass', 'demo', true, v.high_risk, now()
+                insert into medications (recipient_id, name, dose, timing, quote_text, verify_status, ai_source,
+                                         emergency_visible, caution, confirmed_at)
+                select r.id, v.name, v.dose, v.timing, v.quote, 'pass', 'demo', true, v.caution, now()
                 from r, (values
-                    ('와파린정 2mg', '하루 1번 아침 식후 1알', '와파린정2mg 1일 1회 아침 식후 1정', true),
-                    ('도네페질정 5mg', '하루 1번 자기 전 1알', '도네페질정5mg 1일 1회 취침 전 1정', false)
-                ) v (name, dose, quote, high_risk)
+                    ('와파린정 2mg', '1알', '하루 1번 아침 식후', '와파린정2mg 1일 1회 아침 식후 1정', '혈액희석제'),
+                    ('도네페질정 5mg', '1알', '하루 1번 자기 전', '도네페질정5mg 1일 1회 취침 전 1정', null)
+                ) v (name, dose, timing, quote, caution)
             )
             select s.id as session_id, g.id as guardian_id, r.id as recipient_id from s, g, r""";
 

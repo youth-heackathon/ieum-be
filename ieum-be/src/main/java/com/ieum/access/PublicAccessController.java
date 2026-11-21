@@ -42,7 +42,8 @@ public class PublicAccessController {
 
     record EmergencyItem(String category, String summary) {}
 
-    record EmergencyMed(String name, boolean highRisk) {}
+    record EmergencyMed(@Schema(description = "보호자가 이름을 숨기면 null") String name,
+                        @Schema(description = "주의 약 종류 (예: 혈액희석제 → 화면에 '혈액희석제 복용 중'). null이면 일반 약") String caution) {}
 
     /** allowed=false면 보호자가 공개에 동의하지 않은 것. 기록·알림은 그래도 남는다. */
     record Emergency(boolean allowed, List<EmergencyItem> items, List<EmergencyMed> medications, boolean logged, String notice) {}
@@ -55,7 +56,7 @@ public class PublicAccessController {
 
     record DetailRecord(String category, String summary, String quote, OffsetDateTime lastCheckedAt) {}
 
-    record DetailMed(String name, String dose, boolean highRisk, String pharmacyPhone, String quote) {}
+    record DetailMed(String name, String dose, String timing, String caution, String pharmacyPhone, String quote) {}
 
     record Detail(String notice, OffsetDateTime lastCheckedAt, List<DetailRecord> records, List<DetailMed> medications,
                   OffsetDateTime viewExpiresAt) {}
@@ -106,7 +107,7 @@ public class PublicAccessController {
         });
     }
 
-    @Operation(summary = "긴급조회 (의료진)", description = "인증·대기 없음. 보호자가 긴급조회용으로 고른 확정 정보만, 약은 종류·고위험만 준다. 조회할 때마다 기기정보를 기록하고 보호자 전원에게 알린다. allowed=false면 보호자가 공개에 동의하지 않은 것.")
+    @Operation(summary = "긴급조회 (의료진)", description = "인증·대기 없음. 보호자가 긴급조회용으로 고른 확정 정보만 준다. 약은 이름(보호자가 숨기면 null)과 주의 약 종류만, 용량은 주지 않는다. 조회할 때마다 기기정보를 기록하고 보호자 전원에게 알린다. allowed=false면 보호자가 공개에 동의하지 않은 것.")
     @PostMapping("/access/{token}/emergency")
     @Transactional
     public Emergency emergency(@PathVariable String token, HttpServletRequest http) {
@@ -120,8 +121,8 @@ public class PublicAccessController {
                         where recipient_id = ? and confirmed_at is not null and emergency_visible order by created_at""")
                 .param(t.recipientId()).query(EmergencyItem.class).list();
         var meds = db.sql("""
-                        select name, high_risk from medications
-                        where recipient_id = ? and confirmed_at is not null and emergency_visible order by high_risk desc, name""")
+                        select case when name_hidden then null else name end as name, caution from medications
+                        where recipient_id = ? and confirmed_at is not null and emergency_visible order by caution is null, name""")
                 .param(t.recipientId()).query(EmergencyMed.class).list();
         return new Emergency(true, items, meds, true, LOGGED_NOTICE);
     }
@@ -179,8 +180,8 @@ public class PublicAccessController {
                         where recipient_id = ? and confirmed_at is not null order by created_at""")
                 .param(g.recipientId()).query(DetailRecord.class).list();
         var meds = db.sql("""
-                        select name, dose, high_risk, pharmacy_phone, quote_text as quote from medications
-                        where recipient_id = ? and confirmed_at is not null order by high_risk desc, name""")
+                        select name, dose, timing, caution, pharmacy_phone, quote_text as quote from medications
+                        where recipient_id = ? and confirmed_at is not null order by caution is null, name""")
                 .param(g.recipientId()).query(DetailMed.class).list();
         OffsetDateTime lastChecked = records.stream().map(DetailRecord::lastCheckedAt)
                 .filter(Objects::nonNull).max(Comparator.naturalOrder()).orElse(null);
