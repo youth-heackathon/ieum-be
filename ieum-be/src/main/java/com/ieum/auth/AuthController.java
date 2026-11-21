@@ -26,7 +26,7 @@ public class AuthController {
     public static final String GUARDIAN = "guardianId";
     static final String VERIFIED_PHONE = "verifiedPhone";
     static final String MOCK_OTP = "000000";
-    static final String PHONE = "^01[016789]-?\\d{3,4}-?\\d{4}$";
+    public static final String PHONE = "^01[016789]-?\\d{3,4}-?\\d{4}$";
 
     record PhoneReq(@NotBlank @Pattern(regexp = PHONE, message = "휴대폰 번호 형식이 아니에요") String phone) {}
 

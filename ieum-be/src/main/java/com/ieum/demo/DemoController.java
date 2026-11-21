@@ -1,5 +1,6 @@
 package com.ieum.demo;
 
+import com.ieum.access.Access;
 import com.ieum.safety.IpHasher;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpSession;
@@ -32,7 +33,7 @@ public class DemoController {
 
     record StepReq(@Min(1) @Max(5) int step) {} // 4단계 + 끝 화면
 
-    private record Created(UUID sessionId, UUID guardianId) {}
+    private record Created(UUID sessionId, UUID guardianId, UUID recipientId) {}
 
     /** 한 문장(CTE)이라 중간에 실패해도 반쪽 가구가 남지 않는다. */
     private static final String HOUSEHOLD = """
@@ -72,14 +73,16 @@ public class DemoController {
                     ('도네페질정 5mg', '하루 1번 자기 전 1알', '도네페질정5mg 1일 1회 취침 전 1정', false)
                 ) v (name, dose, quote, high_risk)
             )
-            select s.id as session_id, g.id as guardian_id from s, g""";
+            select s.id as session_id, g.id as guardian_id, r.id as recipient_id from s, g, r""";
 
     private final JdbcClient db;
     private final IpHasher ips;
+    private final Access access;
 
-    public DemoController(JdbcClient db, IpHasher ips) {
+    public DemoController(JdbcClient db, IpHasher ips, Access access) {
         this.db = db;
         this.ips = ips;
+        this.access = access;
     }
 
     /** 처음 시작과 "처음부터" 둘 다 이것. 매번 새 가구를 만든다. */
@@ -93,6 +96,7 @@ public class DemoController {
             throw new ResponseStatusException(TOO_MANY_REQUESTS, "오늘은 체험을 너무 많이 시작했어요. 내일 다시 해 주세요");
 
         Created c = db.sql(HOUSEHOLD).param("ip", ipHash).query(Created.class).single();
+        access.issue(c.recipientId()); // 체험 화면에 바로 QR을 띄울 수 있게 (GET /api/access-codes)
         HttpSession session = freshSession(http);
         session.setAttribute(GUARDIAN, c.guardianId());
         session.setAttribute(DEMO, c.sessionId());
